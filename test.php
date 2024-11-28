@@ -1,59 +1,62 @@
 <?php
-$host = 'localhost';
-$db   = 'ecf-garage';
-$user = 'root';
-$pass = '';
-$charset = 'utf8mb4';
+require_once 'script.php';
 
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-$options = [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES   => false,
-];
+// Récupération des paramètres GET
+$minPrice = $_GET['minPrice'] ?? 0;
+$maxPrice = $_GET['maxPrice'] ?? 50000;
+$minYear = $_GET['minYear'] ?? 1990;
+$maxYear = $_GET['maxYear'] ?? date('Y');
+$minKm = $_GET['minKm'] ?? 0;
+$maxKm = $_GET['maxKm'] ?? 500000;
+$sort = $_GET['sort'] ?? '';
 
-try {
-    $pdo = new PDO($dsn, $user, $pass, $options);
-} catch (\PDOException $e) {
-    throw new \PDOException($e->getMessage(), (int)$e->getCode());
+// Construction de la requête SQL
+$query = "SELECT * FROM voitures WHERE prix BETWEEN ? AND ? AND annee BETWEEN ? AND ? AND km BETWEEN ? AND ?";
+
+// Ajout des tris
+switch ($sort) {
+    case 'price_asc':
+        $query .= " ORDER BY prix ASC";
+        break;
+    case 'price_desc':
+        $query .= " ORDER BY prix DESC";
+        break;
+    case 'km_asc':
+        $query .= " ORDER BY km ASC";
+        break;
+    case 'km_desc':
+        $query .= " ORDER BY km DESC";
+        break;
+    case 'date_desc':
+        $query .= " ORDER BY id DESC";
+        break;
+    case 'date_asc':
+        $query .= " ORDER BY id ASC";
+        break;
+    default:
+        $query .= " ORDER BY id ASC"; // Par défaut
+        break;
 }
 
-$minPrice = $_POST['minPrice'];
-$maxPrice = $_POST['maxPrice'];
-$minYear = $_POST['minYear'];
-$maxYear = $_POST['maxYear'];
-$minKm = $_POST['minKm'];
-$maxKm = $_POST['maxKm'];
+// Préparation et exécution
+$stmt = $pdo->prepare($query);
+$stmt->execute([$minPrice, $maxPrice, $minYear, $maxYear, $minKm, $maxKm]);
+$cars = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$stmt = $pdo->prepare("SELECT * FROM voitures WHERE prix BETWEEN :minPrice AND :maxPrice AND annee BETWEEN :minYear AND :maxYear AND km BETWEEN :minKm AND :maxKm");
-$stmt->execute(['minPrice' => $minPrice, 'maxPrice' => $maxPrice, 'minYear' => $minYear, 'maxYear' => $maxYear, 'minKm' => $minKm, 'maxKm' => $maxKm]);
-
-echo "<div class='container'>";
-echo "<div class='row justify-content-center'>"; // Crée une nouvelle ligne pour les voitures
-
-
-while ($row = $stmt->fetch()) {
-    $imageData = base64_encode($row['image_url']);
-
-    // Formatage des km et du prix
-    $formattedKm = number_format($row['km'], 0, '', ' ');
-    $formattedPrice = number_format($row['prix'], 0, '', ' ');
-
-    echo "<div class='col-lg-4 col-md-6 col-sm-12 mb-4'>";
-    echo "<div class='card h-100'>";
-    echo "<img class='card-img-top' src='data:image/jpeg;base64," . $imageData . "' alt='" . $row['modele'] . "'>";
-    echo "<div class='card-body'>";
-    echo "<h5 class='card-title'>" . $row['marque'] . " " . $row['modele'] . "</h5>";
-    echo "<p class='card-text'>" . $formattedKm . " km |  " . $row['energie'] . " | ".$row['annee']."</p>";
-    echo "<p class='card-text'>" . $formattedPrice . "€</p>"; // Utilisez $formattedPrice ici
-    echo "<button><a href='details.php?id=" . $row['id'] . "'>Details</a></button>";
-    echo "</div>";
-    echo "</div>";
-    echo "</div>";
+// Affichage des résultats
+if (empty($cars)) {
+    echo "<p>Aucune voiture ne correspond à vos critères.</p>";
+} else {
+    foreach ($cars as $car) {
+        $image = !empty($car['image_url']) ? "data:image/jpeg;base64," . base64_encode($car['image_url']) : 'path/to/default-image.jpg';
+        echo "<div class='col'>
+                <div class='card h-100'>
+                    <img src='{$image}' class='card-img-top' alt='{$car['marque']}'>
+                    <div class='card-body'>
+                        <h5 class='card-title'>{$car['marque']} - {$car['modele']}</h5>
+                        <p class='card-text'>{$car['energie']} | {$car['annee']} | " . number_format($car['prix'], 0, '', ' ') . " €</p>
+                    </div>
+                </div>
+            </div>";
+    }
 }
-
-// ... (reste du code)
-
-
-echo "</div>"; // Fin de la ligne
-echo "</div>"; // Fin du conteneur

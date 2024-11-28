@@ -17,6 +17,9 @@
         <?php include_once('contact-form.php');?>
        </div>
     </div>
+    
+      <p>&copy;Chlomo Freoua - Dossier Projet 2025</p>
+    </div>
   </footer>
   
 </div>
